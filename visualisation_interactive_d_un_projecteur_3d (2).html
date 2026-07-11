@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisation 3D d'un Projecteur - CPGE</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- MathJax for rendering LaTeX formulas beautifully -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            red: '#ef4444',
+                            green: '#22c55e',
+                            cyan: '#06b6d4',
+                            darkbg: '#0f172a',
+                            panel: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            overflow-x: hidden;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-brand-darkbg text-slate-100 min-h-screen flex flex-col md:flex-row tex2jax_process">
+
+    <!-- Control Panel (Sidebar on desktop) -->
+    <div class="w-full md:w-[420px] bg-brand-panel p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-700/50 z-10 shrink-0 h-auto md:h-screen overflow-y-auto">
+        <div>
+            <!-- Header -->
+            <div class="mb-6">
+                <span class="bg-red-500/10 text-red-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-500/20">CPGE Représentation Réelle</span>
+                <h1 class="text-2xl font-bold mt-2 text-white flex items-center gap-2">
+                    <i class="fa-solid fa-cube text-brand-cyan animate-pulse"></i>
+                    Le Projecteur $p$ f l'Espace
+                </h1>
+                <p class="text-slate-400 text-xs mt-1">Interagis 3D : Repère de CPGE ($z$ dba vertical !)</p>
+            </div>
+
+            <!-- Vector X Controllers -->
+            <div class="bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-700/30">
+                <h3 class="text-sm font-semibold text-brand-cyan mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-brand-cyan"></span>
+                    Le vecteur $x$ (Maths standard)
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Abscisse $x$ (Horizontal - Gauche/Droite)</span>
+                            <span id="valX" class="font-mono text-brand-cyan">1.5</span>
+                        </div>
+                        <input id="sliderX" type="range" min="-3" max="3" step="0.1" value="1.5" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Ordonnée $y$ (Horizontal - Avant/Arrière)</span>
+                            <span id="valY" class="font-mono text-brand-cyan">1.0</span>
+                        </div>
+                        <input id="sliderY" type="range" min="-3" max="3" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Cote $z$ (Vertical - Haut/Bas)</span>
+                            <span id="valZ" class="font-mono text-brand-cyan">2.0</span>
+                        </div>
+                        <input id="sliderZ" type="range" min="-3" max="3" step="0.1" value="2.0" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Direction of H (Obliqueness) -->
+            <div class="bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-700/30">
+                <h3 class="text-sm font-semibold text-brand-green mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-brand-green"></span>
+                    Direction de $H$ ($\ker(p)$)
+                </h3>
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">Angle b la Droite $H$ ou le Plan $G$</span>
+                        <span id="valAngle" class="font-mono text-brand-green">90° (Orthogonal)</span>
+                    </div>
+                    <input id="sliderAngle" type="range" min="30" max="150" step="5" value="90" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500">
+                </div>
+                <p class="text-[11px] text-slate-400 mt-2 italic">
+                    Dba la droite de projection $H$ kat-t-tilted b l'angle par rapport l le plan horizontal $G = (O,x,y)$.
+                </p>
+            </div>
+
+            <!-- Mathematical breakdown -->
+            <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 text-xs space-y-3">
+                <h3 class="text-sm font-semibold text-white">L'espace vectoriel $E = G \oplus H$ :</h3>
+                <p class="text-slate-300 leading-relaxed">
+                    Le plan $G$ est le plan horizontal d'équation $\{z = 0\}$. Tout vecteur $x_G \in G$ a sa composante verticale nulle.
+                </p>
+                <p class="text-slate-300 leading-relaxed">
+                    La droite $H$ est la direction de projection. Tout vecteur $x_H \in H$ est colinéaire à la droite verte.
+                </p>
+                <div class="p-2.5 bg-slate-900/80 rounded border border-slate-700/50 font-mono text-center text-slate-200 text-sm">
+                    $x = (x, y, z) \implies p(x) = x_G \in G$
+                </div>
+            </div>
+        </div>
+
+        <!-- Reset & Info Footer -->
+        <div class="mt-6 pt-4 border-t border-slate-700/50 flex flex-col gap-2">
+            <button id="resetBtn" class="w-full py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrows-rotate"></i> Réinitialiser la vue
+            </button>
+            <div class="text-[10px] text-slate-500 text-center">
+                Conçu pour la préparation aux concours CPGE.
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D Canvas Area -->
+    <div class="flex-1 relative h-[50vh] md:h-screen min-h-[350px]">
+        
+        <!-- Loading State Fallback -->
+        <div id="loading" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 z-50 transition-opacity duration-500">
+            <i class="fa-solid fa-circle-notch animate-spin text-4xl text-brand-cyan mb-4"></i>
+            <p class="text-sm text-slate-400">Chargement de l'espace 3D...</p>
+        </div>
+
+        <!-- Overlay Badges on Canvas -->
+        <div class="absolute top-4 left-4 z-10 pointer-events-none space-y-2">
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/50 flex items-center gap-2 text-xs">
+                <span class="w-3 h-3 rounded bg-brand-red inline-block"></span>
+                <span>Plan $G = \text{Im}(p) = \{z = 0\}$</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/50 flex items-center gap-2 text-xs">
+                <span class="w-3 h-3 rounded-full bg-brand-green inline-block"></span>
+                <span>Droite $H = \ker(p)$</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/50 flex items-center gap-2 text-xs">
+                <span class="w-3.5 h-0.5 bg-brand-cyan inline-block relative -top-0.5"><span class="absolute right-0 -top-1 border-t-4 border-b-4 border-l-4 border-l-brand-cyan border-t-transparent border-b-transparent"></span></span>
+                <span>Vecteur $x = x_G + x_H$</span>
+            </div>
+        </div>
+
+        <div class="absolute bottom-4 right-4 z-10 bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-700/50 max-w-xs text-xs space-y-1.5 pointer-events-auto shadow-xl">
+            <div class="font-semibold text-white mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-square-poll-vertical text-brand-cyan"></i>
+                Repère de Maths :
+            </div>
+            <div class="flex justify-between font-mono">
+                <span class="text-slate-400">Vecteur $x$ :</span>
+                <span id="vecXVal" class="text-brand-cyan">(1.50, 1.00, 2.00)</span>
+            </div>
+            <div class="flex justify-between font-mono">
+                <span class="text-slate-400">$p(x) = x_G$ :</span>
+                <span id="vecGVal" class="text-brand-red">(1.50, 1.00, 0.00)</span>
+            </div>
+            <div class="flex justify-between font-mono">
+                <span class="text-slate-400">Composant $x_H$ :</span>
+                <span id="vecHVal" class="text-brand-green">(0.00, 0.00, 2.00)</span>
+            </div>
+        </div>
+
+        <!-- Hint for mobile users -->
+        <div class="absolute bottom-4 left-4 z-10 bg-slate-900/60 backdrop-blur px-3 py-1.5 rounded-lg text-[11px] text-slate-300 pointer-events-none flex items-center gap-1.5">
+            <i class="fa-solid fa-hand-pointer animate-bounce text-brand-cyan"></i>
+            Glisser & Zoomez pour tourner la caméra 3D !
+        </div>
+
+        <!-- Three.js Canvas Container -->
+        <div id="canvas-container" class="w-full h-full min-h-[350px]"></div>
+    </div>
+
+    <!-- Initialization of Three.js Scene -->
+    <script>
+        window.onload = function () {
+            // Remove loading screen
+            const loadingScreen = document.getElementById('loading');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => loadingScreen.remove(), 500);
+            }
+
+            // Setup Scene
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a); // brand darkbg
+
+            // Grid Background helper (re-aligned on Plane G)
+            const size = 15;
+            const divisions = 15;
+            const gridHelper = new THREE.GridHelper(size, divisions, 0x334155, 0x1e293b);
+            gridHelper.position.y = -0.01; 
+            scene.add(gridHelper);
+
+            // Camera setup
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(6, 5, 8);
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            let controls;
+            if (THREE.OrbitControls) {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.maxPolarAngle = Math.PI / 2 + 0.1;
+            }
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+            dirLight.position.set(5, 12, 7);
+            scene.add(dirLight);
+
+            // --- Geometric Elements creation ---
+
+            // 1. Plane G (Red, $\{z = 0\}$ in Maths)
+            const planeGeo = new THREE.PlaneGeometry(8, 8);
+            const planeMat = new THREE.MeshBasicMaterial({ 
+                color: 0xef4444, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.15,
+                depthWrite: false
+            });
+            const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+            planeMesh.rotation.x = Math.PI / 2; // Lies on horizontal X-Z plane
+            scene.add(planeMesh);
+
+            // Outer ring for Plane G
+            const ringGeo = new THREE.RingGeometry(3.9, 4.0, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, opacity: 0.4, transparent: true });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = Math.PI / 2;
+            scene.add(ringMesh);
+
+            // Helper lines on plane G
+            const planeGrid = new THREE.GridHelper(8, 8, 0xef4444, 0xef4444);
+            planeGrid.position.y = 0.005;
+            scene.add(planeGrid);
+
+            // 2. Line H (Green, Direction vector)
+            const lineHMaterial = new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2 });
+            let lineHGeometry = new THREE.BufferGeometry();
+            let lineH = new THREE.Line(lineHGeometry, lineHMaterial);
+            scene.add(lineH);
+
+            // --- Arrow Helpers for Vectors ---
+            let arrowX, arrowG, arrowH;
+            let dashLine1, dashLine2; // Helper dashed lines to form the parallelogram
+
+            // 3. Axes labels helper to clearly show the math coordinates mapping
+            // Three.js X-axis is Math X (Cyan)
+            // Three.js Y-axis is Math Z (Up/Down)
+            // Three.js Z-axis is Math Y (Deep/Front-Back)
+            const axesHelper = new THREE.AxesHelper(4);
+            // Customize Axes colors: 
+            // X-axis: Cyan (Math x)
+            // Y-axis: Dark Blue (Math z)
+            // Z-axis: Magenta (Math y)
+            const colors = axesHelper.geometry.attributes.color;
+            colors.setXYZ(0, 0.06, 0.71, 0.83); // Cyan
+            colors.setXYZ(1, 0.06, 0.71, 0.83);
+            colors.setXYZ(2, 0.14, 0.77, 0.36); // Green (for vertical)
+            colors.setXYZ(3, 0.14, 0.77, 0.36);
+            colors.setXYZ(4, 0.93, 0.27, 0.27); // Red (for Y)
+            colors.setXYZ(5, 0.93, 0.27, 0.27);
+            axesHelper.geometry.attributes.color.needsUpdate = true;
+            scene.add(axesHelper);
+
+            // Function to compute projections dynamically
+            // Now mapped correctly to Standard Math Coordinate system:
+            // Input sliders: 
+            // - sliderX = Math X (Horizontal)
+            // - sliderY = Math Y (Horizontal, Front/Back)
+            // - sliderZ = Math Z (Vertical)
+            function updateVectors() {
+                const xVal = parseFloat(document.getElementById('sliderX').value);
+                const yVal = parseFloat(document.getElementById('sliderY').value);
+                const zVal = parseFloat(document.getElementById('sliderZ').value);
+                const angleDeg = parseFloat(document.getElementById('sliderAngle').value);
+
+                // Update UI Labels
+                document.getElementById('valX').textContent = xVal.toFixed(1);
+                document.getElementById('valY').textContent = yVal.toFixed(1);
+                document.getElementById('valZ').textContent = zVal.toFixed(1);
+                
+                let angleText = `${angleDeg}°`;
+                if (angleDeg === 90) angleText += " (Orthogonal)";
+                else angleText += " (Oblique)";
+                document.getElementById('valAngle').textContent = angleText;
+
+                // Angle is with respect to the horizontal plane.
+                // We tilt H in the (Math X - Math Z) plane.
+                // So in Three.js, it's the X-Y plane (since Three.js Y is Math Z).
+                const angleRad = (angleDeg * Math.PI) / 180;
+                
+                // direction of H in Three.js coordinates:
+                // Three.js X = Math X = cos(angle)
+                // Three.js Y = Math Z = sin(angle)
+                // Three.js Z = Math Y = 0
+                const vH = new THREE.Vector3(Math.cos(angleRad), Math.sin(angleRad), 0).normalize();
+
+                // Draw Line H in space (from -5 to 5 along its direction)
+                const pointsH = [];
+                pointsH.push(vH.clone().multiplyScalar(-5));
+                pointsH.push(vH.clone().multiplyScalar(5));
+                lineHGeometry.setFromPoints(pointsH);
+
+                // Create Vector X f space
+                // Mapping:
+                // Three.js X = Math X (xVal)
+                // Three.js Y = Math Z (zVal, vertical !)
+                // Three.js Z = Math Y (yVal)
+                const vecX = new THREE.Vector3(xVal, zVal, yVal);
+
+                // Calculate projection components: x = xG + xH
+                // Since xG is f le plan G {z = 0}, we must have vecG.y (which is Math Z) = 0!
+                // vecX.y = vecG.y + vecH.y  =>  zVal = 0 + lambda * vH.y
+                // lambda = zVal / vH.y
+                let lambda = 0;
+                if (Math.abs(vH.y) > 0.001) {
+                    lambda = vecX.y / vH.y;
+                }
+                const vecH = vH.clone().multiplyScalar(lambda);
+                const vecG = vecX.clone().sub(vecH);
+
+                // Update Values in HUD Panel
+                document.getElementById('vecXVal').textContent = `(${xVal.toFixed(2)}, ${yVal.toFixed(2)}, ${zVal.toFixed(2)})`;
+                document.getElementById('vecGVal').textContent = `(${vecG.x.toFixed(2)}, ${vecG.z.toFixed(2)}, 0.00)`; // Math (x, y, z=0)
+                document.getElementById('vecHVal').textContent = `(${vecH.x.toFixed(2)}, 0.00, ${vecH.y.toFixed(2)})`; // Math component
+
+                // Clear old arrows
+                if (arrowX) scene.remove(arrowX);
+                if (arrowG) scene.remove(arrowG);
+                if (arrowH) scene.remove(arrowH);
+                if (dashLine1) scene.remove(dashLine1);
+                if (dashLine2) scene.remove(dashLine2);
+
+                // Create new Vector X arrow (Cyan)
+                const lenX = vecX.length();
+                if (lenX > 0.01) {
+                    arrowX = new THREE.ArrowHelper(vecX.clone().normalize(), new THREE.Vector3(0,0,0), lenX, 0x06b6d4, 0.25, 0.12);
+                    scene.add(arrowX);
+                }
+
+                // Create new Vector p(x) = x_G arrow (Red)
+                const lenG = vecG.length();
+                if (lenG > 0.01) {
+                    arrowG = new THREE.ArrowHelper(vecG.clone().normalize(), new THREE.Vector3(0,0,0), lenG, 0xef4444, 0.25, 0.12);
+                    scene.add(arrowG);
+                }
+
+                // Create new Vector x_H arrow (Green)
+                const lenH = vecH.length();
+                if (lenH > 0.01) {
+                    arrowH = new THREE.ArrowHelper(vecH.clone().normalize(), new THREE.Vector3(0,0,0), lenH, 0x22c55e, 0.25, 0.12);
+                    scene.add(arrowH);
+                }
+
+                // Dashed Helper Lines to form the projection parallelogram
+                const pts1 = [vecG, vecX];
+                const geo1 = new THREE.BufferGeometry().setFromPoints(pts1);
+                const mat1 = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.15, gapSize: 0.1 });
+                dashLine1 = new THREE.Line(geo1, mat1);
+                dashLine1.computeLineDistances();
+                scene.add(dashLine1);
+
+                const pts2 = [vecH, vecX];
+                const geo2 = new THREE.BufferGeometry().setFromPoints(pts2);
+                const mat2 = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.15, gapSize: 0.1 });
+                dashLine2 = new THREE.Line(geo2, mat2);
+                dashLine2.computeLineDistances();
+                scene.add(dashLine2);
+            }
+
+            // Event listeners for Sliders
+            const sliders = ['sliderX', 'sliderY', 'sliderZ', 'sliderAngle'];
+            sliders.forEach(id => {
+                document.getElementById(id).addEventListener('input', updateVectors);
+            });
+
+            // Reset Button
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                document.getElementById('sliderX').value = 1.5;
+                document.getElementById('sliderY').value = 1.0;
+                document.getElementById('sliderZ').value = 2.0;
+                document.getElementById('sliderAngle').value = 90;
+                camera.position.set(6, 5, 8);
+                if (controls) controls.target.set(0,0,0);
+                updateVectors();
+            });
+
+            // Initial vector rendering
+            updateVectors();
+
+            // Animation Loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (controls) controls.update();
+                renderer.render(scene, camera);
+            }
+
+            // Start loop
+            animate();
+
+            // Window resize handling
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        };
+    </script>
+</body>
+</html>
